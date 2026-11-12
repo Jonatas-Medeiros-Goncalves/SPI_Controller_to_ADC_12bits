@@ -19,24 +19,31 @@ ENTITY desserializador IS
 END ENTITY;
 
 ARCHITECTURE comportamento OF desserializador IS
-	SIGNAL bit_count : NATURAL RANGE 0 TO 15 := 0;
+	SIGNAL bit_count : NATURAL RANGE 0 TO 16 := 0;
 	SIGNAL shift_reg : STD_LOGIC_VECTOR(15 DOWNTO 0) := (OTHERS =>'0');
+	SIGNAL data_reg  : STD_LOGIC_VECTOR(15 DOWNTO 0) := (OTHERS =>'0');
 BEGIN
 	PROCESS(CLK)
 	BEGIN
 		IF rising_edge(CLK) THEN
 
-			IF (RST = '1' OR LOAD = '1') THEN
+			IF RST = '1' THEN
+				bit_count <= 0;
+				shift_reg <= (OTHERS => '0');
+				data_reg  <= (OTHERS => '0');
+			ELSIF LOAD = '1' THEN
 				bit_count <= 0;
 				shift_reg <= (OTHERS => '0');
 			ELSIF SAMPLE_EN = '1' THEN
-				IF bit_count < 16 THEN
-					shift_reg(15 - bit_count) <= MISO;
+				IF bit_count < 15 THEN
+					shift_reg <= shift_reg(14 DOWNTO 0) & MISO; -- Desloca o bit para a esquerda
 					bit_count <= bit_count + 1;
 				 ELSE
-					DATA_OUT <= shift_reg;
+					data_reg <= shift_reg(14 DOWNTO 0) & MISO;  -- Ultimo deslocamento
+					bit_count <= 16;
 				END IF;
 			END IF;
 		END IF;
 	END PROCESS;
+	DATA_OUT <= data_reg;
 END comportamento;
