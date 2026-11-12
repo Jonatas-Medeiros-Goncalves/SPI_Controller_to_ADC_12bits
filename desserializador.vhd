@@ -38,7 +38,7 @@ BEGIN
 				IF bit_count < 15 THEN
 					shift_reg <= shift_reg(14 DOWNTO 0) & MISO; -- Desloca o bit para a esquerda
 					bit_count <= bit_count + 1;
-				 ELSE
+				 ELSIF bit_count = 15 THEN
 					data_reg <= shift_reg(14 DOWNTO 0) & MISO;  -- Ultimo deslocamento
 					bit_count <= 16;
 				END IF;
