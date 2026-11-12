@@ -7,7 +7,7 @@ USE IEEE.STD_LOGIC_1164.ALL;
 
 ENTITY serializador IS
     PORT (
-        CLK      : IN  STD_LOGIC; -- clock de entrada, entre  0.8 MHz e 3.2 MHz
+        CLK      : IN  STD_LOGIC; -- clock de entrada do FPGA 50MHz
         RST      : IN  STD_LOGIC; -- sinal de reset
 
         LOAD     : IN  STD_LOGIC; -- sinal de carregamento da nova palavra de bits

@@ -1,1 +1,42 @@
+-- Autores: Jonatas Medeiros & Guilherme Ferreira
+-- Deserializador: Recebe um bit por vez e retorna uma palavra de 16 bits sincronizada com o clock 
+-- e um pulso de habilitacao.
 
+
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+ENTITY desserializador IS
+    PORT (
+        CLK       : IN  STD_LOGIC; -- Clock principal da FPGA (50 MHz)
+        RST       : IN  STD_LOGIC; -- Reset
+
+        LOAD      : IN  STD_LOGIC; -- Limpa e prepara nova recepcao
+        SAMPLE_EN : IN  STD_LOGIC; -- Habilita captura de um bit
+        MISO      : IN  STD_LOGIC; -- DOUT do ADC128S022
+
+        DATA_OUT  : OUT STD_LOGIC_VECTOR(15 DOWNTO 0)
+    );
+END ENTITY;
+
+ARCHITECTURE comportamento OF desserializador IS
+	SIGNAL bit_count : NATURAL RANGE 0 TO 15 := 0;
+	SIGNAL shift_reg : STD_LOGIC_VECTOR(15 DOWNTO 0) := (OTHERS =>'0');
+BEGIN
+	PROCESS(CLK)
+	BEGIN
+		IF rising_edge(CLK) THEN
+
+			IF (RST = '1' OR LOAD = '1') THEN
+				bit_count <= 0;
+				shift_reg <= (OTHERS => '0');
+			ELSIF SAMPLE_EN = '1' THEN
+				IF bit_count < 16 THEN
+					shift_reg(15 - bit_count) <= MISO;
+					bit_count <= bit_count + 1;
+				 ELSE
+					DATA_OUT <= shift_reg;
+				END IF;
+			END IF;
+		END IF;
+	END PROCESS;
+END comportamento;
