@@ -14,7 +14,8 @@ ENTITY desserializador IS
         SAMPLE_EN : IN  STD_LOGIC; -- Habilita captura de um bit
         MISO      : IN  STD_LOGIC; -- DOUT do ADC128S022
 
-        DATA_OUT  : OUT STD_LOGIC_VECTOR(15 DOWNTO 0)
+        DATA_OUT  : OUT STD_LOGIC_VECTOR(15 DOWNTO 0);
+        RX_DONE   : OUT STD_LOGIC -- pulso de 1 CLK na 16a captura
     );
 END ENTITY;
 
@@ -22,10 +23,13 @@ ARCHITECTURE comportamento OF desserializador IS
 	SIGNAL bit_count : NATURAL RANGE 0 TO 16 := 0;
 	SIGNAL shift_reg : STD_LOGIC_VECTOR(15 DOWNTO 0) := (OTHERS =>'0');
 	SIGNAL data_reg  : STD_LOGIC_VECTOR(15 DOWNTO 0) := (OTHERS =>'0');
+	SIGNAL done_reg  : STD_LOGIC := '0';
 BEGIN
 	PROCESS(CLK)
 	BEGIN
 		IF rising_edge(CLK) THEN
+			-- Valor padrao: DONE dura somente um CLK.
+			done_reg <= '0';
 
 			IF RST = '1' THEN
 				bit_count <= 0;
@@ -34,6 +38,7 @@ BEGIN
 			ELSIF LOAD = '1' THEN
 				bit_count <= 0;
 				shift_reg <= (OTHERS => '0');
+				done_reg <= '0';
 			ELSIF SAMPLE_EN = '1' THEN
 				IF bit_count < 15 THEN
 					shift_reg <= shift_reg(14 DOWNTO 0) & MISO; -- Desloca o bit para a esquerda
@@ -41,9 +46,12 @@ BEGIN
 				 ELSIF bit_count = 15 THEN
 					data_reg <= shift_reg(14 DOWNTO 0) & MISO;  -- Ultimo deslocamento
 					bit_count <= 16;
+					done_reg <= '1';
 				END IF;
 			END IF;
 		END IF;
 	END PROCESS;
 	DATA_OUT <= data_reg;
+	RX_DONE <= done_reg;
 END comportamento;
+

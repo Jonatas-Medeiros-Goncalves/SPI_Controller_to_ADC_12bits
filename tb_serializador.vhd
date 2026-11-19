@@ -18,7 +18,8 @@ ARCHITECTURE comportamento OF tb_serializador IS
             LOAD     : IN  STD_LOGIC;
             SHIFT_EN : IN  STD_LOGIC;
             DATA_IN  : IN  STD_LOGIC_VECTOR(15 DOWNTO 0);
-            MOSI     : OUT STD_LOGIC
+            MOSI     : OUT STD_LOGIC;
+            TX_DONE  : OUT STD_LOGIC
         );
     END COMPONENT;
 
@@ -30,6 +31,7 @@ ARCHITECTURE comportamento OF tb_serializador IS
     SIGNAL SHIFT_EN : STD_LOGIC := '0';
     SIGNAL DATA_IN  : STD_LOGIC_VECTOR(15 DOWNTO 0) := (OTHERS => '0');
     SIGNAL MOSI     : STD_LOGIC;
+    SIGNAL TX_DONE  : STD_LOGIC;
 
 BEGIN
 
@@ -40,7 +42,8 @@ BEGIN
             LOAD     => LOAD,
             SHIFT_EN => SHIFT_EN,
             DATA_IN  => DATA_IN,
-            MOSI     => MOSI
+            MOSI     => MOSI,
+            TX_DONE  => TX_DONE
         );
 
     CLK <= NOT CLK AFTER CLK_PERIOD / 2;
@@ -79,6 +82,8 @@ BEGIN
             WAIT FOR 1 ns;
 
             verificar_bit(palavra(15), "MSB apos LOAD");
+            ASSERT TX_DONE = '0'
+                REPORT "ERRO: TX_DONE ativo durante LOAD" SEVERITY ERROR;
 
             -- 15 deslocamentos. Espaca cada SHIFT_EN em 32 ciclos
             -- de 50 MHz (= 640 ns), como exemplo de temporizacao SPI.
@@ -97,9 +102,12 @@ BEGIN
 
                 verificar_bit(palavra(i),
                               "Bit " & INTEGER'IMAGE(i));
+                ASSERT TX_DONE = '0'
+                    REPORT "ERRO: TX_DONE antecipado no bit " & INTEGER'IMAGE(i)
+                    SEVERITY ERROR;
             END LOOP;
 
-            -- Testa se um 16o pulso de SHIFT_EN nao descarta o LSB.
+            -- O 16o pulso finaliza sem descartar o LSB de MOSI.
             FOR k IN 1 TO 31 LOOP
                 WAIT UNTIL rising_edge(CLK);
             END LOOP;
@@ -108,13 +116,33 @@ BEGIN
             WAIT UNTIL rising_edge(CLK);
             SHIFT_EN <= '0';
             WAIT FOR 1 ns;
-            verificar_bit(palavra(0), "LSB preservado apos pulso extra");
+            verificar_bit(palavra(0), "LSB preservado na finalizacao");
+            ASSERT TX_DONE = '1'
+                REPORT "ERRO: faltou TX_DONE no 16o pulso"
+                SEVERITY ERROR;
+
+            -- DONE deve durar apenas um CLK.
+            WAIT UNTIL rising_edge(CLK);
+            WAIT FOR 1 ns;
+            ASSERT TX_DONE = '0'
+                REPORT "ERRO: TX_DONE durou mais de um CLK" SEVERITY ERROR;
+
+            -- Um 17o pulso nao pode deslocar o LSB nem gerar outro DONE.
+            SHIFT_EN <= '1';
+            WAIT UNTIL rising_edge(CLK);
+            SHIFT_EN <= '0';
+            WAIT FOR 1 ns;
+            verificar_bit(palavra(0), "LSB preservado apos 17o pulso");
+            ASSERT TX_DONE = '0'
+                REPORT "ERRO: TX_DONE repetido no 17o pulso" SEVERITY ERROR;
 
             -- Sem LOAD e sem SHIFT_EN, a saida deve permanecer estavel.
             FOR k IN 1 TO 5 LOOP
                 WAIT UNTIL rising_edge(CLK);
                 WAIT FOR 1 ns;
                 verificar_bit(palavra(0), "MOSI estavel em repouso");
+                ASSERT TX_DONE = '0'
+                    REPORT "ERRO: TX_DONE ativo em repouso" SEVERITY ERROR;
             END LOOP;
         END PROCEDURE;
 
@@ -124,6 +152,8 @@ BEGIN
         WAIT UNTIL rising_edge(CLK);
         WAIT FOR 1 ns;
         verificar_bit('0', "RESET inicial");
+        ASSERT TX_DONE = '0'
+            REPORT "ERRO: TX_DONE ativo durante reset" SEVERITY ERROR;
 
         WAIT UNTIL rising_edge(CLK);
         RST <= '0';
@@ -154,6 +184,8 @@ BEGIN
         RST <= '0';
         WAIT FOR 1 ns;
         verificar_bit('0', "Reset durante transmissao");
+        ASSERT TX_DONE = '0'
+            REPORT "ERRO: TX_DONE ativo apos reset intermediario" SEVERITY ERROR;
 
         REPORT "FIM: verificacoes concluidas; confira se houve ASSERT ERROR acima"
             SEVERITY NOTE;
@@ -162,3 +194,4 @@ BEGIN
     END PROCESS;
 
 END ARCHITECTURE;
+

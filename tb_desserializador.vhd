@@ -19,6 +19,7 @@ ARCHITECTURE simulacao OF tb_desserializador IS
     SIGNAL SAMPLE_EN : STD_LOGIC := '0';
     SIGNAL MISO      : STD_LOGIC := '0';
     SIGNAL DATA_OUT  : STD_LOGIC_VECTOR(15 DOWNTO 0);
+    SIGNAL RX_DONE   : STD_LOGIC;
 BEGIN
     CLK <= NOT CLK AFTER CLK_PERIOD / 2;
 
@@ -29,7 +30,8 @@ BEGIN
             LOAD      => LOAD,
             SAMPLE_EN => SAMPLE_EN,
             MISO      => MISO,
-            DATA_OUT  => DATA_OUT
+            DATA_OUT  => DATA_OUT,
+            RX_DONE   => RX_DONE
         );
 
     ESTIMULOS : PROCESS
@@ -44,12 +46,17 @@ BEGIN
             WAIT UNTIL rising_edge(CLK);
             LOAD <= '0';
             WAIT FOR 1 ns;
+            ASSERT RX_DONE = '0'
+                REPORT "ERRO: RX_DONE ativo durante LOAD" SEVERITY ERROR;
         END PROCEDURE;
 
         -- Gera um pulso SAMPLE_EN com 1 ciclo de 50 MHz de duracao.
         -- O DUT recebe MISO na segunda borda de subida.
         -- O intervalo entre capturas sucessivas e de 640 ns.
-        PROCEDURE capturar_bit(CONSTANT b : IN STD_LOGIC) IS
+        PROCEDURE capturar_bit(
+            CONSTANT b          : IN STD_LOGIC;
+            CONSTANT ultimo_bit : IN BOOLEAN := FALSE
+        ) IS
         BEGIN
             WAIT UNTIL rising_edge(CLK);
             MISO      <= b;
@@ -59,8 +66,25 @@ BEGIN
             SAMPLE_EN <= '0';
             WAIT FOR 1 ns;
 
+            -- Confere DONE enquanto o pulso ainda esta ativo.
+            IF ultimo_bit THEN
+                ASSERT RX_DONE = '1'
+                    REPORT "ERRO: faltou RX_DONE na 16a captura"
+                    SEVERITY ERROR;
+            ELSE
+                ASSERT RX_DONE = '0'
+                    REPORT "ERRO: RX_DONE antecipado ou repetido"
+                    SEVERITY ERROR;
+            END IF;
+
+            WAIT UNTIL rising_edge(CLK);
+            WAIT FOR 1 ns;
+            ASSERT RX_DONE = '0'
+                REPORT "ERRO: RX_DONE nao caiu no CLK seguinte"
+                SEVERITY ERROR;
+
             -- Aguarda antes da proxima chamada da procedure.
-            WAIT FOR BIT_PERIOD - 2 * CLK_PERIOD - 1 ns;
+            WAIT FOR BIT_PERIOD - 3 * CLK_PERIOD - 1 ns;
         END PROCEDURE;
 
         -- Verifica que DATA_OUT so muda ao receber o 16o bit.
@@ -74,7 +98,7 @@ BEGIN
                 REPORT "ERRO: LOAD alterou DATA_OUT" SEVERITY ERROR;
 
             FOR i IN 15 DOWNTO 0 LOOP
-                capturar_bit(palavra(i));
+                capturar_bit(palavra(i), i = 0);
 
                 IF i > 0 THEN
                     ASSERT DATA_OUT = anterior
@@ -99,6 +123,8 @@ BEGIN
         ASSERT DATA_OUT = x"0000"
             REPORT "ERRO: reset inicial nao zerou DATA_OUT"
             SEVERITY ERROR;
+        ASSERT RX_DONE = '0'
+            REPORT "ERRO: RX_DONE ativo apos reset inicial" SEVERITY ERROR;
 
         -- Teste 1: formato tipico do ADC128S022: 0000 + 12 bits.
         REPORT "TESTE 1: recebendo 0x0AC5" SEVERITY NOTE;
@@ -111,6 +137,8 @@ BEGIN
         ASSERT DATA_OUT = x"0AC5"
             REPORT "ERRO: SAMPLE_EN extra alterou DATA_OUT"
             SEVERITY ERROR;
+        ASSERT RX_DONE = '0'
+            REPORT "ERRO: SAMPLE_EN extra gerou novo RX_DONE" SEVERITY ERROR;
 
         -- Teste 3: novo LOAD nao apaga o resultado anterior.
         REPORT "TESTE 3: recebendo 0x0001" SEVERITY NOTE;
@@ -150,6 +178,8 @@ BEGIN
         ASSERT DATA_OUT = x"0000"
             REPORT "ERRO: reset nao zerou DATA_OUT"
             SEVERITY ERROR;
+        ASSERT RX_DONE = '0'
+            REPORT "ERRO: RX_DONE ativo apos reset intermediario" SEVERITY ERROR;
 
         -- Teste 8: verifica se o componente volta a receber apos reset.
         REPORT "TESTE 8: recebendo 0xFFFF apos reset" SEVERITY NOTE;

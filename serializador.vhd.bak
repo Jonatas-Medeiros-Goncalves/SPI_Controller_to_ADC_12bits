@@ -1,5 +1,6 @@
 -- Autores: Jonatas Medeiros & Guilherme Ferreira
--- Serializador: Recebe uma palavra de bits e envia bit a bit sincronizado com o clock e um pulso de habilitacao
+-- Serializador: Recebe uma palavra de bits e envia bit a bit sincronizado 
+-- com o clock e um pulso de habilitacao
 
 
 LIBRARY IEEE;
@@ -47,7 +48,7 @@ BEGIN
                 IF bit_count < 15 THEN
 
                     shift_reg <=
-                        shift_reg(14 DOWNTO 0) & '0';
+                        shift_reg(14 DOWNTO 0) & '0'; -- desloca o bit para a esquerda
 
                     bit_count <= bit_count + 1;
 
