@@ -1,3 +1,32 @@
+# Saidas locais de simulacao
+work/
+transcript
+# Arquivos de simulação (ModelSim / QuestaSim / GHDL)
 *.vcd
-*.bak
-*.bmp
+*.wlf
+*.vstf
+*.log
+transcript
+vsim.wlf
+work/
+modelsim.ini
+
+# Arquivos de síntese (Quartus / Vivado)
+db/
+incremental_db/
+output_files/
+simulation/
+*.qpf
+*.qsf
+*.sof
+*.pof
+*.rpt
+*.summary
+*.smsg
+*.pin
+*.done
+
+# Sistema operacional/editor
+.DS_Store
+Thumbs.db
+.vscode/
