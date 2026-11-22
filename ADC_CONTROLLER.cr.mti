@@ -1,4 +1,13 @@
-A:/JONATAS/MESTRADO/UFSC/LOGICA_PROGRAMAVEL_FPGA/PROJETOS_VHDL/SPI_Controller_to_ADC_12bits/tb_serializador.vhd {1 {vcom -work work -2002 -explicit -stats=none {A:\JONATAS\MESTRADO\UFSC\LOGICA_PROGRAMAVEL_FPGA\PROJETOS_VHDL\SPI_Controller_to_ADC_12bits\tb_serializador.vhd}
+A:/JONATAS/MESTRADO/UFSC/LOGICA_PROGRAMAVEL_FPGA/PROJETOS_VHDL/SPI_Controller_to_ADC_12bits/adc128s022_model.vhd {1 {vcom -work work -2002 -explicit -stats=none {A:\JONATAS\MESTRADO\UFSC\LOGICA_PROGRAMAVEL_FPGA\PROJETOS_VHDL\SPI_Controller_to_ADC_12bits\adc128s022_model.vhd}
+Model Technology ModelSim - Intel FPGA Edition vcom 10.5b Compiler 2016.10 Oct  5 2016
+-- Loading package STANDARD
+-- Loading package TEXTIO
+-- Loading package std_logic_1164
+-- Loading package NUMERIC_STD
+-- Compiling entity adc128s022_model
+-- Compiling architecture simulacao of adc128s022_model
+
+} {} {}} A:/JONATAS/MESTRADO/UFSC/LOGICA_PROGRAMAVEL_FPGA/PROJETOS_VHDL/SPI_Controller_to_ADC_12bits/tb_serializador.vhd {1 {vcom -work work -2002 -explicit -stats=none {A:\JONATAS\MESTRADO\UFSC\LOGICA_PROGRAMAVEL_FPGA\PROJETOS_VHDL\SPI_Controller_to_ADC_12bits\tb_serializador.vhd}
 Model Technology ModelSim - Intel FPGA Edition vcom 10.5b Compiler 2016.10 Oct  5 2016
 -- Loading package STANDARD
 -- Loading package TEXTIO
@@ -13,6 +22,28 @@ Model Technology ModelSim - Intel FPGA Edition vcom 10.5b Compiler 2016.10 Oct  
 -- Loading package std_logic_1164
 -- Compiling entity tb_desserializador
 -- Compiling architecture simulacao of tb_desserializador
+-- Loading entity desserializador
+
+} {} {}} A:/JONATAS/MESTRADO/UFSC/LOGICA_PROGRAMAVEL_FPGA/PROJETOS_VHDL/SPI_Controller_to_ADC_12bits/tb_adc128s022_integrado.vhd {1 {vcom -work work -2002 -explicit -stats=none {A:\JONATAS\MESTRADO\UFSC\LOGICA_PROGRAMAVEL_FPGA\PROJETOS_VHDL\SPI_Controller_to_ADC_12bits\tb_adc128s022_integrado.vhd}
+Model Technology ModelSim - Intel FPGA Edition vcom 10.5b Compiler 2016.10 Oct  5 2016
+-- Loading package STANDARD
+-- Loading package TEXTIO
+-- Loading package std_logic_1164
+-- Loading package NUMERIC_STD
+-- Compiling entity tb_adc128s022_integrado
+-- Compiling architecture teste of tb_adc128s022_integrado
+-- Loading entity ad_controller
+-- Loading entity adc128s022_model
+
+} {} {}} A:/JONATAS/MESTRADO/UFSC/LOGICA_PROGRAMAVEL_FPGA/PROJETOS_VHDL/SPI_Controller_to_ADC_12bits/adc_controller.vhd {1 {vcom -work work -2002 -explicit -stats=none {A:\JONATAS\MESTRADO\UFSC\LOGICA_PROGRAMAVEL_FPGA\PROJETOS_VHDL\SPI_Controller_to_ADC_12bits\adc_controller.vhd}
+Model Technology ModelSim - Intel FPGA Edition vcom 10.5b Compiler 2016.10 Oct  5 2016
+-- Loading package STANDARD
+-- Loading package TEXTIO
+-- Loading package std_logic_1164
+-- Loading package NUMERIC_STD
+-- Compiling entity ad_controller
+-- Compiling architecture comportamento of ad_controller
+-- Loading entity serializador
 -- Loading entity desserializador
 
 } {} {}} A:/JONATAS/MESTRADO/UFSC/LOGICA_PROGRAMAVEL_FPGA/PROJETOS_VHDL/SPI_Controller_to_ADC_12bits/tb_adc_controller.vhd {1 {vcom -work work -2002 -explicit -stats=none {A:\JONATAS\MESTRADO\UFSC\LOGICA_PROGRAMAVEL_FPGA\PROJETOS_VHDL\SPI_Controller_to_ADC_12bits\tb_adc_controller.vhd}
