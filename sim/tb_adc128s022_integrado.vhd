@@ -11,6 +11,48 @@ ENTITY tb_adc128s022_integrado IS
 END ENTITY;
 
 ARCHITECTURE teste OF tb_adc128s022_integrado IS
+-- Componentes
+    COMPONENT adc_controller IS
+    GENERIC (
+        NUM_CANAIS : INTEGER RANGE 1 TO 8 := 3;
+        MT_ADC     : POSITIVE := 16  -- ciclos de CLK por meio SCLK
+    );
+    PORT (
+        CLK        : IN  STD_LOGIC; -- clock da FPGA: 50 MHz
+        RST        : IN  STD_LOGIC; -- reset ativo alto
+        ENABLE     : IN  STD_LOGIC; -- habilita varredura continua
+        ADC_CS     : OUT STD_LOGIC;
+        ADC_SCLK   : OUT STD_LOGIC;
+        ADC_DIN    : OUT STD_LOGIC;
+        ADC_DOUT   : IN  STD_LOGIC;
+        DATA_OUT   : OUT STD_LOGIC_VECTOR(15 DOWNTO 0);
+        CHANNEL_ID : OUT INTEGER RANGE 0 TO 7;
+        DATA_VALID : OUT STD_LOGIC
+    );
+    END COMPONENT;
+    COMPONENT adc128s022_model IS
+    GENERIC (
+        VREF_V  : REAL := 3.3;     -- Referencia/VA simulada (volts)
+        T_EN    : TIME := 30 ns;  -- CS baixo -> DOUT habilitado
+        T_DACC  : TIME := 27 ns;  -- Descida SCLK -> DOUT valido
+        T_DIS   : TIME := 20 ns   -- CS alto -> DOUT em alta impedancia
+    );
+    PORT (
+        CS       : IN  STD_LOGIC;
+        SCLK     : IN  STD_LOGIC;
+        DIN      : IN  STD_LOGIC;
+        DOUT     : OUT STD_LOGIC;
+        AIN0     : IN REAL;
+        AIN1     : IN REAL;
+        AIN2     : IN REAL;
+        AIN3     : IN REAL;
+        AIN4     : IN REAL;
+        AIN5     : IN REAL;
+        AIN6     : IN REAL;
+        AIN7     : IN REAL
+    );
+    END COMPONENT;
+
     CONSTANT CLK_PERIOD : TIME := 20 ns;    -- CLK FPGA: 50 MHz
     CONSTANT VREF_V     : REAL := 3.3;
 
@@ -44,7 +86,7 @@ ARCHITECTURE teste OF tb_adc128s022_integrado IS
 BEGIN
     CLK <= NOT CLK AFTER CLK_PERIOD / 2;
 
-    DUT : ENTITY work.ad_controller
+    DUT : adc_controller
         GENERIC MAP (
             NUM_CANAIS => 8,
             MT_ADC     => 16
@@ -62,7 +104,7 @@ BEGIN
             DATA_VALID => DATA_VALID
         );
 
-    U_ADC : ENTITY work.adc128s022_model
+    U_ADC : adc128s022_model
         GENERIC MAP (
             VREF_V => VREF_V,
             T_EN   => 30 ns,

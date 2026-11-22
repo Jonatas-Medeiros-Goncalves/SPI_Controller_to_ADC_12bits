@@ -10,7 +10,7 @@ ENTITY tb_adc_controller_sclk IS
 END ENTITY;
 
 ARCHITECTURE simulacao OF tb_adc_controller_sclk IS
-    COMPONENT ad_controller IS
+    COMPONENT adc_controller IS
     GENERIC (
         NUM_CANAIS : INTEGER RANGE 1 TO 8 := 3;
         MT_ADC     : POSITIVE := 16  -- ciclos de CLK por meio SCLK
@@ -53,7 +53,7 @@ ARCHITECTURE simulacao OF tb_adc_controller_sclk IS
 BEGIN
     CLK <= NOT CLK AFTER CLK_PERIOD / 2;
 
-    UUT : ad_controller
+    UUT : adc_controller
         GENERIC MAP (NUM_CANAIS => 3, MT_ADC => 16)
         PORT MAP (
             CLK => CLK, RST => RST, ENABLE => ENABLE,

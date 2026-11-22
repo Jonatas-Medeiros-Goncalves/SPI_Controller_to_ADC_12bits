@@ -12,7 +12,7 @@ LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 USE IEEE.NUMERIC_STD.ALL;
 
-ENTITY ad_controller IS
+ENTITY adc_controller IS
     GENERIC (
         NUM_CANAIS : INTEGER RANGE 1 TO 8 := 3;
         MT_ADC     : POSITIVE := 16  -- ciclos de CLK por meio SCLK
@@ -29,9 +29,33 @@ ENTITY ad_controller IS
         CHANNEL_ID : OUT INTEGER RANGE 0 TO 7;
         DATA_VALID : OUT STD_LOGIC
     );
-END ENTITY ad_controller;
+END ENTITY adc_controller;
 
 ARCHITECTURE comportamento OF ad_controller IS
+-- Declaracao dos componentes
+    COMPONENT serializador IS
+    PORT (
+        CLK      : IN  STD_LOGIC; -- SCLK do ADC (nao CLK de 50 MHz)
+        RST      : IN  STD_LOGIC; -- reset assincrono neste dominio
+        LOAD     : IN  STD_LOGIC; -- deve estar em '1' na 1a descida
+        SHIFT_EN : IN  STD_LOGIC; -- habilitacao de nivel enquanto CS = 0
+        DATA_IN  : IN  STD_LOGIC_VECTOR(15 DOWNTO 0);
+        MOSI     : OUT STD_LOGIC;
+        TX_DONE  : OUT STD_LOGIC
+    );
+    END COMPONENT;
+    COMPONENT desserializador IS
+    PORT (
+        CLK       : IN  STD_LOGIC; -- SCLK do ADC (nao CLK de 50 MHz)
+        RST       : IN  STD_LOGIC; -- reset assincrono neste dominio
+        LOAD      : IN  STD_LOGIC; -- limpa/arma recepcao assincronamente
+        SAMPLE_EN : IN  STD_LOGIC; -- habilitacao de nivel enquanto CS = 0
+        MISO      : IN  STD_LOGIC; -- DOUT do ADC128S022
+        DATA_OUT  : OUT STD_LOGIC_VECTOR(15 DOWNTO 0);
+        RX_DONE   : OUT STD_LOGIC
+    );
+    END COMPONENT;
+
     TYPE state_type IS (IDLE, PREPARE, START_SPI, TRANSFER, FINISH);
     SIGNAL estado : state_type := IDLE;
 
@@ -199,7 +223,7 @@ BEGIN
         END IF;
     END PROCESS;
 
-    U_TX : ENTITY work.serializador
+    U_TX : serializador
         PORT MAP (
             CLK      => sclk_intern,
             RST      => RST,
@@ -210,7 +234,7 @@ BEGIN
             TX_DONE  => done_tx
         );
 
-    U_RX : ENTITY work.desserializador
+    U_RX : desserializador
         PORT MAP (
             CLK       => sclk_intern,
             RST       => RST,

@@ -10,6 +10,19 @@ ENTITY tb_desserializador IS
 END ENTITY;
 
 ARCHITECTURE simulacao OF tb_desserializador IS
+
+   COMPONENT desserializador IS
+    PORT (
+        CLK       : IN  STD_LOGIC; -- SCLK do ADC (nao CLK de 50 MHz)
+        RST       : IN  STD_LOGIC; -- reset assincrono neste dominio
+        LOAD      : IN  STD_LOGIC; -- limpa/arma recepcao assincronamente
+        SAMPLE_EN : IN  STD_LOGIC; -- habilitacao de nivel enquanto CS = 0
+        MISO      : IN  STD_LOGIC; -- DOUT do ADC128S022
+        DATA_OUT  : OUT STD_LOGIC_VECTOR(15 DOWNTO 0);
+        RX_DONE   : OUT STD_LOGIC
+    );
+    END COMPONENT;
+
     CONSTANT CLK_PERIOD : TIME := 20 ns;   -- 50 MHz
     CONSTANT BIT_PERIOD : TIME := 640 ns;  -- Intervalo entre amostragens
 
@@ -23,7 +36,7 @@ ARCHITECTURE simulacao OF tb_desserializador IS
 BEGIN
     CLK <= NOT CLK AFTER CLK_PERIOD / 2;
 
-    UUT : ENTITY work.desserializador
+    UUT : desserializador
         PORT MAP (
             CLK       => CLK,
             RST       => RST,
