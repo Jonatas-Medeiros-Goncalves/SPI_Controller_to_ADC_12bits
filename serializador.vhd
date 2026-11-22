@@ -1,78 +1,58 @@
 -- Autores: Jonatas Medeiros & Guilherme Ferreira
--- Serializador: Recebe uma palavra de bits e envia bit a bit sincronizado 
--- com o clock e um pulso de habilitacao
-
+-- Versao SCLK: o ADC e o serializador usam o MESMO SCLK.
+-- O primeiro falling_edge carrega a palavra (LOAD = '1').
+-- Os 15 falling_edges seguintes avancam D14 ... D0 em MOSI.
+-- TX_DONE fica em '1' quando D0 foi apresentado (16a descida),
+-- ate o proximo LOAD ou RST. Ele NAO indica que o ADC ja capturou D0.
 
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 
 ENTITY serializador IS
     PORT (
-        CLK      : IN  STD_LOGIC; -- clock de entrada do FPGA 50MHz
-        RST      : IN  STD_LOGIC; -- sinal de reset
-
-        LOAD     : IN  STD_LOGIC; -- sinal de carregamento da nova palavra de bits
-        SHIFT_EN : IN  STD_LOGIC; -- pulso para envio de cada bit da palavra
-
-        DATA_IN  : IN  STD_LOGIC_VECTOR(15 DOWNTO 0); -- palavra de entrada
-        MOSI     : OUT STD_LOGIC; -- bit de saida
-        TX_DONE  : OUT STD_LOGIC  -- pulso de 1 CLK no 16o SHIFT_EN
+        CLK      : IN  STD_LOGIC; -- SCLK do ADC (nao CLK de 50 MHz)
+        RST      : IN  STD_LOGIC; -- reset assincrono neste dominio
+        LOAD     : IN  STD_LOGIC; -- deve estar em '1' na 1a descida
+        SHIFT_EN : IN  STD_LOGIC; -- habilitacao de nivel enquanto CS = 0
+        DATA_IN  : IN  STD_LOGIC_VECTOR(15 DOWNTO 0);
+        MOSI     : OUT STD_LOGIC;
+        TX_DONE  : OUT STD_LOGIC
     );
-END ENTITY;
+END ENTITY serializador;
 
 ARCHITECTURE comportamento OF serializador IS
-
-    SIGNAL shift_reg : STD_LOGIC_VECTOR(15 DOWNTO 0)
-                        := (OTHERS => '0');
-
-    SIGNAL bit_count : NATURAL RANGE 0 TO 16 := 0;
+    SIGNAL shift_reg : STD_LOGIC_VECTOR(15 DOWNTO 0) := (OTHERS => '0');
+    SIGNAL bit_count : NATURAL RANGE 0 TO 15 := 0;
     SIGNAL done_reg  : STD_LOGIC := '0';
-
 BEGIN
-
-    PROCESS(CLK)
+    PROCESS(CLK, RST)
     BEGIN
-        IF rising_edge(CLK) THEN
+        IF RST = '1' THEN
+            shift_reg <= (OTHERS => '0');
+            bit_count <= 0;
+            done_reg  <= '0';
 
-            -- Valor padrao: DONE dura somente um CLK.
-            done_reg <= '0';
-
-            IF RST = '1' THEN
-                shift_reg <= (OTHERS => '0');
-                bit_count <= 0;
-
-            ELSIF LOAD = '1' THEN
-
-                -- Carrega a palavra inteira
+        ELSIF falling_edge(CLK) THEN
+            IF LOAD = '1' THEN
+                -- Primeira descida do frame: apresenta D15.
                 shift_reg <= DATA_IN;
                 bit_count <= 0;
+                done_reg  <= '0';
 
             ELSIF SHIFT_EN = '1' THEN
-
-                -- Primeiro bit ja esta em MOSI; os 15 primeiros pulsos
-                -- avancam a palavra ate o LSB.
                 IF bit_count < 15 THEN
-
-                    shift_reg <=
-                        shift_reg(14 DOWNTO 0) & '0'; -- desloca o bit para a esquerda
-
+                    shift_reg <= shift_reg(14 DOWNTO 0) & '0';
                     bit_count <= bit_count + 1;
-
-                ELSIF bit_count = 15 THEN
-                    -- 16o pulso: ultimo bit foi enviado, sem desloca-lo.
-                    bit_count <= 16;
-                    done_reg <= '1';
+                    IF bit_count = 14 THEN
+                        -- O deslocamento agora coloca D0 em MOSI.
+                        done_reg <= '1';
+                    END IF;
                 END IF;
-
             END IF;
-
         END IF;
     END PROCESS;
 
-    -- MSB sempre disponivel na saida
-    MOSI <= shift_reg(15);
+    MOSI    <= shift_reg(15);
     TX_DONE <= done_reg;
-
-END ARCHITECTURE;
-
+END ARCHITECTURE comportamento;
 
