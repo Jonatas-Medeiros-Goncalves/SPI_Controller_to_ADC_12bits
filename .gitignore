@@ -3,6 +3,7 @@ work/
 transcript
 # Arquivos de simulação (ModelSim / QuestaSim / GHDL)
 *.vcd
+*.bak
 *.wlf
 *.vstf
 *.log
