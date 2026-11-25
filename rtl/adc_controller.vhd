@@ -31,7 +31,7 @@ ENTITY adc_controller IS
     );
 END ENTITY adc_controller;
 
-ARCHITECTURE comportamento OF ad_controller IS
+ARCHITECTURE comportamento OF adc_controller IS
 -- Declaracao dos componentes
     COMPONENT serializador IS
     PORT (
