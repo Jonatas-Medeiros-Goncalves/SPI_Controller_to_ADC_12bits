@@ -44,12 +44,11 @@ Se você está conhecendo VHDL ou abrindo este projeto pela primeira vez, comece
 
 | Comece por | Entenda o quê? |
 |---|---|
-| [`rtl/adc_controller_sclk.vhd`](rtl/adc_controller_sclk.vhd) | Controlador principal: FSM, SCLK, CS e canais |
-| [`rtl/serializador_sclk.vhd`](rtl/serializador_sclk.vhd) | Comando de 16 bits transmitido ao ADC |
-| [`rtl/desserializador_sclk.vhd`](rtl/desserializador_sclk.vhd) | Amostra serial recebida do ADC |
+| [`rtl/adc_controller.vhd`](rtl/adc_controller.vhd) | Controlador principal: FSM, SCLK, CS e canais |
+| [`rtl/serializador.vhd`](rtl/serializador.vhd) | Comando de 16 bits transmitido ao ADC |
+| [`rtl/desserializador.vhd`](rtl/desserializador.vhd) | Amostra serial recebida do ADC |
 | [`sim/adc128s022_model.vhd`](sim/adc128s022_model.vhd) | ADC virtual que responde ao controlador |
 | [`sim/tb_adc128s022_integrado.vhd`](sim/tb_adc128s022_integrado.vhd) | Testbench: aplica estímulos e confere respostas |
-| [`sim/simular_modelsim.do`](sim/simular_modelsim.do) | Script para compilar e executar o teste |
 
 ## Comece pela simulação
 
