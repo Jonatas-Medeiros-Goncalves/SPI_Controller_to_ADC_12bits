@@ -1,128 +1,144 @@
-# Controlador SPI para o ADC128S022 — DE0-Nano
+# SPI Controller for ADC128S022 | DE0-Nano
 
-Implementação em **VHDL** de um controlador para leitura sequencial dos canais do conversor **ADC128S022**, utilizado na placa **Terasic DE0-Nano**. O projeto inclui os blocos de transmissão e recepção SPI, a máquina de estados do controlador, um modelo comportamental do ADC e um *testbench* integrado para o **ModelSim 10.5b**.
+Controlador **SPI em VHDL** para aquisição sequencial de até **oito canais** do conversor **ADC128S022**, presente na placa **Terasic DE0-Nano**. O projeto contém a lógica digital destinada à FPGA, um **modelo comportamental do ADC** e um **testbench integrado** executado no **ModelSim 10.5b**.
 
-> **Estado do projeto:** simulação funcional integrada aprovada em 10 frames no teste apresentado; síntese, análise de temporização e validação na placa física **ainda não documentadas como concluídas**.
+> **Status:** validação funcional realizada anteriormente com 10 frames e oito canais, incluindo mudança de entrada analógica simulada. A versão reorganizada nesta pasta troca **apenas nomes de entidade e forma de instanciação**; sua simulação deve ser executada novamente após a atualização. **Síntese, timing no TimeQuest e teste no hardware ainda estão pendentes.**
 
 ## Visão geral
 
 ```mermaid
 flowchart LR
-    CLK["Clock FPGA<br/>50 MHz"] --> CTRL["ad_controller<br/>FSM e gerador de SCLK"]
-    CTRL -->|"Comando, LOAD_TX, SCLK"| TX["serializador<br/>descidas de SCLK"]
-    CTRL -->|"LOAD_RX, SCLK"| RX["desserializador<br/>subidas de SCLK"]
-    CTRL -->|"CS e SCLK"| ADC["ADC128S022<br/>8 canais / 12 bits"]
-    TX -->|"DIN"| ADC
-    ADC -->|"DOUT"| RX
-    RX -->|"Amostra e RX_DONE"| CTRL
-    CTRL -->|"DATA_OUT, CHANNEL_ID, DATA_VALID"| USER["Lógica de aplicação"]
+    CLK["CLK 50 MHz"] --> CTRL["adc_controller<br/>FSM + divisor de clock"]
+    CTRL -->|"SCLK, LOAD_TX"| TX["serializador<br/>borda de descida"]
+    CTRL -->|"SCLK, LOAD_RX"| RX["desserializador<br/>borda de subida"]
+    CTRL -->|"CS, SCLK"| ADC["ADC128S022<br/>8 canais, 12 bits"]
+    TX -->|"DIN / MOSI"| ADC
+    ADC -->|"DOUT / MISO"| RX
+    RX -->|"DATA_OUT, RX_DONE"| CTRL
+    CTRL --> OUT["DATA_OUT + CHANNEL_ID + DATA_VALID"]
 ```
 
-A interface recebe uma palavra serial de 16 bits por transação: **quatro zeros seguidos dos 12 bits da conversão**. O canal solicitado em `DIN` passa a ser convertido no **frame seguinte**; por isso, o controlador mantém separados o canal recebido e o próximo canal solicitado.
+A FPGA gera o clock SPI (`ADC_SCLK`) a partir do clock principal de 50 MHz. O ADC recebe um comando de seleção de canal em `DIN`, devolvendo em `DOUT` uma palavra de **16 bits**: quatro zeros iniciais e os **12 bits válidos**. O endereço transmitido em um frame define o canal convertido **no frame seguinte**.
 
-### Características desta implementação
+## Nomes dos arquivos
 
-| Parâmetro | Valor / comportamento |
-|---|---|
-| Clock principal | 50 MHz (`CLK`) |
-| Clock SPI padrão | 1,5625 MHz (`MT_ADC = 16`) |
-| Bits por frame | 16 |
-| Resolução útil | 12 bits |
-| Número de canais | 1 a 8 (`NUM_CANAIS`; exemplo de simulação: 8) |
-| Ordem dos bits | MSB primeiro |
-| `ADC_CS` | Ativo em nível baixo |
-| SCLK em repouso | Nível alto |
-| Serializador | Usa as **descidas** de SCLK |
-| Desserializador | Usa as **subidas** de SCLK |
-| Resultado válido | `DATA_VALID` por 1 ciclo do clock de 50 MHz |
+Os módulos usam os nomes originais **sem o sufixo `_sclk`**:
+`adc_controller.vhd`, `serializador.vhd` e `desserializador.vhd`.
+O sufixo foi utilizado indevidamente em uma versão anterior do pacote.
+O script `simular_modelsim.do` procura esses nomes em `rtl/`, `sim/` e na **raiz** do repositório.
 
-## Por onde começar? Entenda os arquivos primeiro
-
-Se você está conhecendo VHDL ou abrindo este projeto pela primeira vez, comece pelo **[guia de arquivos e terminologias](docs/guia-arquivos.md)**. Ele explica, com exemplos, **para que serve cada arquivo**, **como os módulos se conectam** e como o testbench verifica uma conversão.
-
-> **`tb` é a abreviação de _testbench_.** O arquivo `sim/tb_adc128s022_integrado.vhd` **testa** o controlador; ele não é o ADC nem faz parte do circuito sintetizado. O arquivo `sim/adc128s022_model.vhd` é o **ADC simulado** que o testbench utiliza. Já os três arquivos `rtl/*.vhd` descrevem a lógica projetada para a FPGA.
-
-| Comece por | Entenda o quê? |
-|---|---|
-| [`rtl/adc_controller.vhd`](rtl/adc_controller.vhd) | Controlador principal: FSM, SCLK, CS e canais |
-| [`rtl/serializador.vhd`](rtl/serializador.vhd) | Comando de 16 bits transmitido ao ADC |
-| [`rtl/desserializador.vhd`](rtl/desserializador.vhd) | Amostra serial recebida do ADC |
-| [`sim/adc128s022_model.vhd`](sim/adc128s022_model.vhd) | ADC virtual que responde ao controlador |
-| [`sim/tb_adc128s022_integrado.vhd`](sim/tb_adc128s022_integrado.vhd) | Testbench: aplica estímulos e confere respostas |
-
-## Comece pela simulação
-
-1. Instale/abra o **ModelSim 10.5b** e defina como diretório de trabalho a **raiz deste repositório**.
-2. Execute no console (*Transcript*):
-
-   ```tcl
-   do sim/simular_modelsim.do
-   ```
-
-3. Observe `ADC_CS`, `ADC_SCLK`, `ADC_DIN`, `ADC_DOUT`, `CHANNEL_ID`, `DATA_OUT` e `DATA_VALID`.
-4. No console, cada verificação bem-sucedida deve mostrar `Frame N OK` e nenhum `** Error:`. O script compila com `vcom -2008` e executa `140 us`.
-
-> A simulação usa entradas `REAL` e atrasos temporais no modelo do ADC: **`sim/adc128s022_model.vhd` não deve ser sintetizado na FPGA**.
-
-![Exemplo de forma de onda observada no ModelSim](docs/images/ondas_modelsim.png)
-
-*Captura de uma execução do projeto: varredura dos canais e palavras recebidas (exemplo visual; amplie a figura para os detalhes).*
-
-## Estrutura do repositório
+## Organização do repositório
 
 ```text
 .
 ├── README.md
 ├── rtl/
-│   ├── adc_controller_sclk.vhd          # Entidade: ad_controller
-│   ├── serializador_sclk.vhd            # Entidade: serializador
-│   └── desserializador_sclk.vhd         # Entidade: desserializador
+│   ├── adc_controller.vhd
+│   ├── serializador.vhd
+│   └── desserializador.vhd
 ├── sim/
-│   ├── adc128s022_model.vhd             # ADC comportamental; não sintetizável
-│   ├── tb_adc128s022_integrado.vhd      # Testbench completo
-│   └── simular_modelsim.do              # Compilação e simulação
+│   ├── adc128s022_model.vhd
+│   ├── tb_adc128s022_integrado.vhd
+│   └── simular_modelsim.do
 └── docs/
-    ├── guia-arquivos.md                 # Tutorial: arquivos, conexões e termos
-    ├── arquitetura.md                   # Blocos, sinais e FSM
-    ├── protocolo-spi.md                 # Bits, bordas e pipeline de canais
-    ├── validacao.md                     # Testes, resultados e limitações
-    ├── implementacao-fisica.md          # Checklist Quartus / DE0-Nano
-    └── images/
-        └── ondas_modelsim.png
+    ├── guia-arquivos.md
+    ├── arquitetura.md
+    ├── protocolo-spi.md
+    ├── validacao.md
+    └── implementacao-fisica.md
 ```
 
-## Documentação técnica
+### O que faz cada arquivo?
 
-Para entender o funcionamento em ordem recomendada:
-
-1. [Guia para iniciantes: arquivos, conexões e terminologias](docs/guia-arquivos.md)
-2. [Arquitetura e máquina de estados](docs/arquitetura.md)
-3. [Protocolo SPI e temporização](docs/protocolo-spi.md)
-4. [Testbench e resultados da simulação](docs/validacao.md)
-5. [Pendências para a implementação física](docs/implementacao-fisica.md)
-
-## Interface do módulo principal
-
-O módulo superior tem o nome de **entidade `ad_controller`** (apesar de o arquivo se chamar `adc_controller_sclk.vhd`). Seus genéricos são `NUM_CANAIS` (1 a 8; padrão 3) e `MT_ADC` (ciclos de 50 MHz por **meio período** de SCLK; padrão 16).
-
-| Porta | Direção | Finalidade |
+| Arquivo | Papel | Sintetizável? |
 |---|---|---|
-| `CLK` | Entrada | Clock da FPGA (50 MHz) |
-| `RST` | Entrada | Reset ativo alto |
-| `ENABLE` | Entrada | Habilitação da varredura; ver [FSM](docs/arquitetura.md) |
-| `ADC_CS` | Saída | Seleção do ADC, ativa em zero |
-| `ADC_SCLK` | Saída | Clock SPI gerado |
-| `ADC_DIN` | Saída | Comando serial para ADC |
-| `ADC_DOUT` | Entrada | Dados seriais do ADC |
-| `DATA_OUT[15:0]` | Saída | `0000` + código digital de 12 bits |
-| `CHANNEL_ID` | Saída | Canal ao qual `DATA_OUT` corresponde |
-| `DATA_VALID` | Saída | Pulso que indica nova amostra completa |
+| [`rtl/adc_controller.vhd`](rtl/adc_controller.vhd) | Entidade `adc_controller`: FSM, comando de canais, `CS`, `SCLK` e sincronização de `RX_DONE` | Sim, sujeito à validação de timing |
+| [`rtl/serializador.vhd`](rtl/serializador.vhd) | Entidade `serializador`: apresenta os 16 bits do comando em `DIN`, nas descidas de SCLK | Sim |
+| [`rtl/desserializador.vhd`](rtl/desserializador.vhd) | Entidade `desserializador`: captura `DOUT` nas subidas de SCLK e gera `RX_DONE` | Sim |
+| [`sim/adc128s022_model.vhd`](sim/adc128s022_model.vhd) | **Modelo do ADC**: emula os oito canais e os tempos digitais da interface; recebe tensões do tipo `REAL` | **Não** |
+| [`sim/tb_adc128s022_integrado.vhd`](sim/tb_adc128s022_integrado.vhd) | **Testbench (`tb`)**: conecta controlador e ADC simulado, aplica tensões e confere as respostas por `ASSERT` | **Não** |
+| [`sim/simular_modelsim.do`](sim/simular_modelsim.do) | **Script ModelSim**: compila, inicia a simulação e adiciona sinais à janela Wave | Não se aplica |
 
-## Escopo e referências
+**Terminologia:** `tb` significa *testbench*, `DUT` significa *Device Under Test* (o controlador sob teste) e `U_ADC` é a instância do ADC virtual. O **modelo do ADC não é o testbench**: ele é um componente de simulação usado *pelo* testbench.
 
-Este repositório documenta uma **implementação específica** para fins de desenvolvimento e simulação. O modelo comportamental não substitui medições reais, validação de *timing* ou testes na placa.
+## Como executar no ModelSim 10.5b
 
-- [Texas Instruments — ADC128S022 (produto e datasheet)](https://www.ti.com/product/ADC128S022)
-- [GitHub — README e arquivos Markdown](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes)
+Na pasta raiz do repositório, abra o ModelSim e execute na janela **Transcript**:
 
-**Licença:** ainda não definida. Antes de aceitar contribuições/reutilização pública, adicionar um `LICENSE` compatível com a titularidade do código.
+```tcl
+do sim/simular_modelsim.do
+```
+
+O script usa `vcom -2008` para compilar, nesta ordem:
+
+1. Serializador e desserializador (`rtl/`).
+2. Controlador principal (`rtl/`).
+3. Modelo comportamental do ADC (`sim/`).
+4. Testbench integrado (`sim/`).
+
+Depois carrega o testbench, apresenta as principais ondas e executa **140 µs**. A biblioteca é criada em `modelsim_work/` **dentro do projeto** para evitar a utilização de uma biblioteca `work` antiga ou mapeada para o diretório do Intel FPGA. **Não envie `modelsim_work/` ao GitHub**: é um produto da compilação.
+
+O comando do script `vsim work.tb_adc128s022_integrado` usa `work` **apenas para indicar a biblioteca da simulação**. No VHDL, as instâncias foram escritas por `COMPONENT` e `PORT MAP`, sem `ENTITY work...`.
+
+### O que observar
+
+Os sinais principais são `ADC_CS`, `ADC_SCLK`, `ADC_DIN`, `ADC_DOUT`, `DATA_OUT`, `CHANNEL_ID` e `DATA_VALID`. Para cada transação:
+
+- `CS` fica baixo durante **16 ciclos** de SCLK.
+- O serializador opera nas **descidas**; o desserializador captura nas **subidas**.
+- `DATA_VALID` sinaliza que `DATA_OUT` e `CHANNEL_ID` correspondem à amostra concluída.
+- `RX_DONE` é sincronizado para o clock de 50 MHz, evitando encerrar prematuramente o frame seguinte.
+
+No teste integrado, a sequência esperada é:
+
+| Frame | Canal | Código decimal | Hexadecimal |
+|---|---:|---:|---|
+| 1 | 0 | 291 | `0123` |
+| 2 | 1 | 1110 | `0456` |
+| 3 | 2 | 1929 | `0789` |
+| 4 | 3 | 2748 | `0ABC` |
+| 5 | 4 | 3567 | `0DEF` |
+| 6 | 5 | 4095 | `0FFF` |
+| 7 | 6 | 1 | `0001` |
+| 8 | 7 | 2080 | `0820` |
+| 9 | 0 | 801 | `0321` (IN0 atualizado) |
+| 10 | 1 | 1110 | `0456` |
+
+Esse é o **resultado de referência do teste anterior**, não uma afirmação de que o pacote reorganizado já foi executado no ModelSim.
+
+## Interface do controlador
+
+| Porta/genérico | Função |
+|---|---|
+| `CLK` | Clock principal da FPGA, 50 MHz |
+| `RST` | Reset ativo alto |
+| `ENABLE` | Habilita a varredura contínua |
+| `ADC_CS` | Seleção do conversor, ativa em zero |
+| `ADC_SCLK` | Clock SPI (repouso em nível alto) |
+| `ADC_DIN` | Comando enviado ao ADC |
+| `ADC_DOUT` | Resposta serial recebida do ADC |
+| `DATA_OUT[15:0]` | Quatro zeros e código de 12 bits |
+| `CHANNEL_ID` | Identificação do canal da amostra atual |
+| `DATA_VALID` | Pulso de validação da amostra |
+| `NUM_CANAIS` | Genérico: 1–8 canais (no testbench, 8) |
+| `MT_ADC` | Genérico: quantidade de ciclos do CLK por **meio período** de SCLK (16 por padrão) |
+
+Com `CLK = 50 MHz` e `MT_ADC = 16`, a frequência nominal é **1,5625 MHz**, e um frame de 16 ciclos dura **10,24 µs**, sem contar o intervalo entre transações.
+
+## Instanciação por componentes: qual a diferença?
+
+O controlador declara `COMPONENT serializador` e `COMPONENT desserializador`, conectando-os com `PORT MAP`. O testbench declara `COMPONENT adc_controller` e `COMPONENT adc128s022_model`.
+
+Isso **não altera o circuito** em relação à instanciação direta `ENTITY work...`, desde que nomes e interfaces estejam consistentes e todas as entidades/arquiteturas estejam compiladas. O nome padronizado neste repositório é **`adc_controller`**, inclusive na declaração `ENTITY adc_controller IS`, evitando o desencontro anterior entre `ad_controller` e `adc_controller`.
+
+## Documentação e limitações
+
+- [Guia dos arquivos e termos](docs/guia-arquivos.md)
+- [Arquitetura e FSM](docs/arquitetura.md)
+- [Protocolo SPI](docs/protocolo-spi.md)
+- [Testes e critérios de validação](docs/validacao.md)
+- [Validação física pendente](docs/implementacao-fisica.md)
+
+A implementação usa **SCLK como clock dos registradores** e contém uma travessia de domínio de clock (`RX_DONE` de SCLK para 50 MHz). É indispensável conferir restrições, rotas de clock e *setup/hold* no Quartus/TimeQuest antes de declarar o hardware validado.
+
+**Referência principal:** [Texas Instruments — ADC128S022](https://www.ti.com/product/ADC128S022).
