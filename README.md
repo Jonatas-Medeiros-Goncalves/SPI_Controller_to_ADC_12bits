@@ -40,6 +40,9 @@ O script `simular_modelsim.do` procura esses nomes em `rtl/`, `sim/` e na **raiz
 │   ├── adc128s022_model.vhd
 │   ├── tb_adc128s022_integrado.vhd
 │   └── simular_modelsim.do
+├── quartus/
+│   ├── [Top-Level VHDL existente na pasta]
+│   └── [CSV de atribuicoes do Pin Planner]
 └── docs/
     ├── guia-arquivos.md
     ├── arquitetura.md
@@ -58,8 +61,75 @@ O script `simular_modelsim.do` procura esses nomes em `rtl/`, `sim/` e na **raiz
 | [`sim/adc128s022_model.vhd`](sim/adc128s022_model.vhd) | **Modelo do ADC**: emula os oito canais e os tempos digitais da interface; recebe tensões do tipo `REAL` | **Não** |
 | [`sim/tb_adc128s022_integrado.vhd`](sim/tb_adc128s022_integrado.vhd) | **Testbench (`tb`)**: conecta controlador e ADC simulado, aplica tensões e confere as respostas por `ASSERT` | **Não** |
 | [`sim/simular_modelsim.do`](sim/simular_modelsim.do) | **Script ModelSim**: compila, inicia a simulação e adiciona sinais à janela Wave | Não se aplica |
+| [`quartus/`](quartus/) — Top-Level | Arquivo VHDL de integração para utilização da DE0-Nano; instancia o controlador e estabelece as conexões externas da FPGA | Sim |
+| [`quartus/`](quartus/) — CSV do Pin Planner | Tabela exportada do Quartus com as atribuições de pinos, para importar ao criar outro projeto | Não se aplica |
 
 **Terminologia:** `tb` significa *testbench*, `DUT` significa *Device Under Test* (o controlador sob teste) e `U_ADC` é a instância do ADC virtual. O **modelo do ADC não é o testbench**: ele é um componente de simulação usado *pelo* testbench.
+
+## Implementação na DE0-Nano com Quartus Prime
+
+A pasta [`quartus/`](quartus/) reúne **dois arquivos de apoio à implementação física**: o **Top-Level** do projeto e um arquivo **CSV com as atribuições do Pin Planner**. Eles tornam mais simples recriar o projeto no Quartus Prime sem precisar configurar manualmente todos os sinais da placa.
+
+> **Atenção:** o CSV facilita a configuração dos pinos, mas **não é um projeto Quartus completo**. O arquivo `.qsf` do projeto é gerado/atualizado pelo Quartus após a importação. Os arquivos da pasta `sim/` são para o ModelSim e **não devem ser usados como Top-Level sintetizável**.
+
+### Passo 1 — Criar um projeto Quartus
+
+1. Abra o **Quartus Prime** e selecione **File → New Project Wizard**.
+2. Escolha uma pasta de trabalho e um nome para o projeto.
+3. Configure a **Top-Level Entity** com o nome da `ENTITY` declarada no arquivo VHDL da pasta `quartus/` (não necessariamente o nome do arquivo).
+4. Selecione a FPGA da DE0-Nano: **Cyclone IV E — EP4CE22F17C6N**.
+5. Finalize a criação do projeto.
+
+### Passo 2 — Adicionar os arquivos VHDL
+
+Em **Project → Add/Remove Files in Project**, adicione:
+
+- Os três módulos sintetizáveis de `rtl/`: `adc_controller.vhd`, `serializador.vhd` e `desserializador.vhd`.
+- O **arquivo VHDL Top-Level** já incluído em `quartus/`.
+
+O Top-Level **instancia** o `adc_controller` e conecta sua interface aos sinais externos da DE0-Nano. Dentro do controlador estão as instâncias dos módulos de serialização e desserialização. Assim, a hierarquia de síntese é:
+
+```mermaid
+flowchart TD
+    TOP["Top-Level (quartus/)"] --> CTRL["adc_controller (rtl/)"]
+    CTRL --> TX["serializador (rtl/)"]
+    CTRL --> RX["desserializador (rtl/)"]
+    TOP --> FPGA["Portas físicas da DE0-Nano"]
+```
+
+Após adicionar os arquivos, confirme em **Assignments → Settings → General** que a *Top-Level Entity* é a entidade do VHDL em `quartus/`. Execute **Processing → Start → Start Analysis & Elaboration** para verificar se os módulos e as portas são reconhecidos.
+
+### Passo 3 — Importar o CSV do Pin Planner
+
+1. Na janela principal do Quartus, selecione **Assignments → Import Assignments**.
+2. Escolha o **arquivo `.csv` existente em `quartus/`** e confirme.
+3. Abra **Assignments → Pin Planner** para conferir as atribuições importadas.
+4. Verifique se os **nomes das portas do Top-Level** correspondem aos nomes dos sinais no CSV e se não há conflitos de localização.
+
+O objetivo é **evitar a atribuição manual repetitiva** dos pinos. Uma importação concluída pode apresentar a mensagem `Import completed` indicando quantas atribuições foram lidas e gravadas. Isso **não garante**, por si só, que o projeto esteja corretamente configurado: ainda é necessário verificar o Pin Planner e compilar.
+
+**Pinos de referência da DE0-Nano** (devem corresponder aos nomes utilizados no seu Top-Level e ao CSV):
+
+| Função | Pino físico FPGA |
+|---|---|
+| Oscilador de 50 MHz | `PIN_R8` |
+| `ADC_CS_N` | `PIN_A10` |
+| `ADC_SCLK` | `PIN_B14` |
+| `ADC_SADDR` (DIN/MOSI do ADC) | `PIN_B10` |
+| `ADC_SDAT` (DOUT/MISO do ADC) | `PIN_A9` |
+
+*Fonte dos pinos: DE0-Nano User Manual, seção 3.6 (ADC) e seção 3.8 (clock). Os nomes acima são os nomes da placa e podem não coincidir exatamente com os nomes das portas do seu VHDL.*
+
+### Passo 4 — Compilar e verificar o projeto
+
+1. Execute **Processing → Start Compilation**.
+2. Confira mensagens de erro e avisos, especialmente atribuições de pinos e sinais não conectados.
+3. Analise a temporização no **TimeQuest**, considerando o clock principal de 50 MHz e o SCLK gerado pelo controlador.
+4. Depois da compilação bem-sucedida e da verificação das restrições, use o **Programmer** para carregar o `.sof` na DE0-Nano e realizar os testes físicos.
+
+**Limitação atual:** os dez frames aprovados no ModelSim demonstram o funcionamento **em simulação**; não substituem o fechamento de temporização e os testes com o ADC real.
+
+---
 
 ## Como executar no ModelSim 10.5b
 
